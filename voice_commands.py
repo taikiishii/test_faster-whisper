@@ -7,13 +7,12 @@ from faster_whisper import WhisperModel
 
 # Predefined command vocabulary and their variants
 COMMANDS = {
-    "forward": ["まえ","前"],
-    "stop": ["とまれ","止まれ","ストップ","stop"],
-    "left": ["ひだり","左"],
-    "right": ["みぎ","右",],
-    "back": ["うしろ", "後ろ", "バック", "back"],
+    "FORWARD": ["まえ","マエ","前","すすめ","ススメ","進め","まい"],
+    "STOP": ["とまれ","トマレ","止まれ","ストップ","stop"],
+    "LEFT": ["ひだり","ヒダリ","左"],
+    "RIGHT": ["みぎ","ミギ","右",],
+    "BACK": ["うしろ", "ウシロ","後ろ", "バック", "back"],
 }
-
 
 def apply_preemphasis(x: np.ndarray, coeff: float = 0.97) -> np.ndarray:
     if x.size == 0:
