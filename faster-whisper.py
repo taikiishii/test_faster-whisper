@@ -4,6 +4,7 @@ from faster_whisper import WhisperModel
 import io
 import wave
 import time
+import ctranslate2
 
 
 def apply_preemphasis(x: np.ndarray, coeff: float = 0.97) -> np.ndarray:
@@ -45,10 +46,23 @@ def measure_rms(stream, sample_rate: int, chunk_size: int, seconds: float = 2.0,
     return float(np.sqrt(np.mean(audio_np ** 2)))
 
 def main():
+    # --- CUDAの利用可能性をチェック ---
+    cuda_available = ctranslate2.get_cuda_device_count() > 0
+    
+    if cuda_available:
+        device = "cuda"
+        compute_type = "float16"
+        print("🚀 CUDAが利用可能です。GPUを使用します。")
+    else:
+        device = "cpu"
+        compute_type = "int8"
+        print("⚠️  CUDAが利用できません。CPUを使用します。")
+    
+    print(f"   デバイス: {device}")
+    print(f"   計算タイプ: {compute_type}\n")
+    
     # --- 設定 ---
     model_size = "small"  # tiny, base, small, medium, large （大きいほど精度向上、計算量増加）
-    device = "cpu"        # GPU(NVIDIA)があるなら "cuda"
-    compute_type = "int8" # CPU使用時。GPU時は "float16" や "float32" を推奨
     
     # === 精度向上パラメータ ===
     beam_size = 5         # 5 → 10 で精度向上（計算時間も増加）
