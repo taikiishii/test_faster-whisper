@@ -5,6 +5,7 @@ import io
 import wave
 import time
 import ctranslate2
+import gc
 
 
 def apply_preemphasis(x: np.ndarray, coeff: float = 0.97) -> np.ndarray:
@@ -67,7 +68,7 @@ def main():
     model_size = "medium"  # Jetson向けに軽量化（tiny, base, small, medium, large）
     
     # === 精度向上パラメータ ===
-    beam_size = 3         # メモリ削減のため3に設定（5 → 10 で精度向上、メモリ増加）
+    beam_size = 1         # メモリ削減のため1に設定（デフォルト5。1にするとメモリ大幅節約）
     temperature = 0.0     # 0.0 = 最も確実な認識、高いほど多様な結果
     enable_audio_norm = True  # 音声レベルを正規化してSNRを改善
     normalize_target_db = -20.0  # 正規化の目標dB
@@ -269,9 +270,16 @@ def main():
     except KeyboardInterrupt:
         print("\n終了します...")
     finally:
-        stream.stop_stream()
-        stream.close()
-        audio.terminate()
+        print("メモリを開放しています...")
+        if 'model' in locals():
+            del model
+        if 'stream' in locals():
+            stream.stop_stream()
+            stream.close()
+        if 'audio' in locals():
+            audio.terminate()
+        gc.collect()
+        print("完了。")
 
 if __name__ == "__main__":
     main()
