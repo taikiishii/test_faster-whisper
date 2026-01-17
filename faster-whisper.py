@@ -51,7 +51,8 @@ def main():
     
     if cuda_available:
         device = "cuda"
-        compute_type = "float16"
+        # Jetson用のメモリ削減設定
+        compute_type = "int8"  # float16 → int8 でメモリ削減
         print("🚀 CUDAが利用可能です。GPUを使用します。")
     else:
         device = "cpu"
@@ -59,13 +60,14 @@ def main():
         print("⚠️  CUDAが利用できません。CPUを使用します。")
     
     print(f"   デバイス: {device}")
-    print(f"   計算タイプ: {compute_type}\n")
+    print(f"   計算タイプ: {compute_type}")
+    print("   (Jetson用メモリ最適化モード)\n")
     
     # --- 設定 ---
-    model_size = "small"  # tiny, base, small, medium, large （大きいほど精度向上、計算量増加）
+    model_size = "medium"  # Jetson向けに軽量化（tiny, base, small, medium, large）
     
     # === 精度向上パラメータ ===
-    beam_size = 5         # 5 → 10 で精度向上（計算時間も増加）
+    beam_size = 3         # メモリ削減のため3に設定（5 → 10 で精度向上、メモリ増加）
     temperature = 0.0     # 0.0 = 最も確実な認識、高いほど多様な結果
     enable_audio_norm = True  # 音声レベルを正規化してSNRを改善
     normalize_target_db = -20.0  # 正規化の目標dB
