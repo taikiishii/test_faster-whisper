@@ -77,7 +77,9 @@ def main():
     preemph_coeff = 0.97
 
     print(f"Loading Whisper model '{model_size}'...")
+    print("(初回実行時はモデルのダウンロードに数分かかることがあります...)")
     model = WhisperModel(model_size, device=device, compute_type=compute_type)
+    print(f"✓ Model '{model_size}' loaded successfully!")
 
     audio = pyaudio.PyAudio()
     stream = audio.open(format=pyaudio.paInt16,
