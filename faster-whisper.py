@@ -91,7 +91,7 @@ def main():
     preemph_coeff = 0.97
     # デバイス一覧で確認した webcam (index 0) を指定してみてください
     input_device_index = 0  # 0: ELECOM Webcam, None: Default
-    gate_multiplier = 1.5   # ノイズゲート閾値の乗数（低いほど感度が高い）
+    gate_multiplier = 1.3   # ノイズゲート閾値の乗数（低感度なら下げる）
     gate_enabled = True     # ノイズゲートの有効/無効
     
     # VAD（音声活動検出）パラメータ
@@ -128,7 +128,7 @@ def main():
     # --- 環境ノイズをキャリブレーション ---
     print("\n環境ノイズ測定中…（2秒、静かにしてください）")
     baseline_rms = measure_rms(stream, sample_rate, chunk_size, seconds=2.0, apply_preemph=enable_preemph, preemph_coeff=preemph_coeff)
-    noise_gate_rms = max(0.005, baseline_rms * gate_multiplier)
+    noise_gate_rms = max(0.003, baseline_rms * gate_multiplier)
     print(f"基準RMS={baseline_rms:.4f} → ゲートRMS={noise_gate_rms:.4f}")
     if not gate_enabled:
         print("(ノイズゲートは無効です)")
@@ -247,9 +247,9 @@ def main():
             clip_ratio = float(np.mean(np.abs(audio_np) >= 0.98))
             print(f"✓ 録音完了 ({record_time:.2f}秒) | max={audio_level:.3f}, rms={audio_rms:.3f}, clip={clip_ratio*100:.1f}%")
             
-            # 音声が小さすぎる場合はスキップ
-            if audio_rms < noise_gate_rms:
-                print(f"  (音声が小さすぎます)")
+            # 音声が小さすぎる場合はスキップ (閾値の80%あれば許容する)
+            if audio_rms < noise_gate_rms * 0.8:
+                print(f"  (音声が小さすぎます: rms={audio_rms:.4f} < {noise_gate_rms * 0.8:.4f})")
                 continue
 
             # クリッピングが多い場合は警告
