@@ -4,6 +4,9 @@ from faster_whisper import WhisperModel
 import io
 import wave
 import time
+import ctranslate2
+import gc
+import argparse
 
 
 def apply_preemphasis(x: np.ndarray, coeff: float = 0.97) -> np.ndarray:
@@ -45,13 +48,38 @@ def measure_rms(stream, sample_rate: int, chunk_size: int, seconds: float = 2.0,
     return float(np.sqrt(np.mean(audio_np ** 2)))
 
 def main():
+    # --- 引数解析 ---
+    parser = argparse.ArgumentParser(description="Faster Whisper 音声認識")
+    parser.add_argument("--model", type=str, default="small", 
+                        choices=["tiny", "base", "small", "medium", "large-v3", "distil-large-v3"],
+                        help="使用するモデルサイズ (default: small)")
+    parser.add_argument("--beam", type=int, default=1,
+                        help="Beam Size (default: 1, メモリ節約)")
+    args = parser.parse_args()
+
+    # --- CUDAの利用可能性をチェック ---
+    cuda_available = ctranslate2.get_cuda_device_count() > 0
+    
+    if cuda_available:
+        device = "cuda"
+        # Jetson用のメモリ削減設定
+        compute_type = "int8"  # float16 → int8 でメモリ削減
+        print("🚀 CUDAが利用可能です。GPUを使用します。")
+    else:
+        device = "cpu"
+        compute_type = "int8"
+        print("⚠️  CUDAが利用できません。CPUを使用します。")
+    
+    print(f"   デバイス: {device}")
+    print(f"   計算タイプ: {compute_type}")
+    print("   (Jetson用メモリ最適化モード)\n")
+    
     # --- 設定 ---
-    model_size = "small"  # tiny, base, small, medium, large （大きいほど精度向上、計算量増加）
-    device = "cpu"        # GPU(NVIDIA)があるなら "cuda"
-    compute_type = "int8" # CPU使用時。GPU時は "float16" や "float32" を推奨
+    model_size = args.model
+    print(f"👉 使用モデル: {model_size}")
     
     # === 精度向上パラメータ ===
-    beam_size = 5         # 5 → 10 で精度向上（計算時間も増加）
+    beam_size = args.beam
     temperature = 0.0     # 0.0 = 最も確実な認識、高いほど多様な結果
     enable_audio_norm = True  # 音声レベルを正規化してSNRを改善
     normalize_target_db = -20.0  # 正規化の目標dB
@@ -61,8 +89,9 @@ def main():
     test_record_seconds = 3  # 開始時のテスト録音秒数
     enable_preemph = True   # 事前強調でSNRを少し改善
     preemph_coeff = 0.97
-    input_device_index = None  # 必要なら入力デバイス番号を指定
-    gate_multiplier = 1.5   # ノイズゲート閾値の乗数（低いほど感度が高い）
+    # デバイス一覧で確認した webcam (index 0) を指定してみてください
+    input_device_index = 0  # 0: ELECOM Webcam, None: Default
+    gate_multiplier = 1.3   # ノイズゲート閾値の乗数（低感度なら下げる）
     gate_enabled = True     # ノイズゲートの有効/無効
     
     # VAD（音声活動検出）パラメータ
@@ -99,7 +128,7 @@ def main():
     # --- 環境ノイズをキャリブレーション ---
     print("\n環境ノイズ測定中…（2秒、静かにしてください）")
     baseline_rms = measure_rms(stream, sample_rate, chunk_size, seconds=2.0, apply_preemph=enable_preemph, preemph_coeff=preemph_coeff)
-    noise_gate_rms = max(0.005, baseline_rms * gate_multiplier)
+    noise_gate_rms = max(0.003, baseline_rms * gate_multiplier)
     print(f"基準RMS={baseline_rms:.4f} → ゲートRMS={noise_gate_rms:.4f}")
     if not gate_enabled:
         print("(ノイズゲートは無効です)")
@@ -218,9 +247,9 @@ def main():
             clip_ratio = float(np.mean(np.abs(audio_np) >= 0.98))
             print(f"✓ 録音完了 ({record_time:.2f}秒) | max={audio_level:.3f}, rms={audio_rms:.3f}, clip={clip_ratio*100:.1f}%")
             
-            # 音声が小さすぎる場合はスキップ
-            if audio_rms < noise_gate_rms:
-                print(f"  (音声が小さすぎます)")
+            # 音声が小さすぎる場合はスキップ (閾値の80%あれば許容する)
+            if audio_rms < noise_gate_rms * 0.8:
+                print(f"  (音声が小さすぎます: rms={audio_rms:.4f} < {noise_gate_rms * 0.8:.4f})")
                 continue
 
             # クリッピングが多い場合は警告
@@ -253,9 +282,16 @@ def main():
     except KeyboardInterrupt:
         print("\n終了します...")
     finally:
-        stream.stop_stream()
-        stream.close()
-        audio.terminate()
+        print("メモリを開放しています...")
+        if 'model' in locals():
+            del model
+        if 'stream' in locals():
+            stream.stop_stream()
+            stream.close()
+        if 'audio' in locals():
+            audio.terminate()
+        gc.collect()
+        print("完了。")
 
 if __name__ == "__main__":
     main()

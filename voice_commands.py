@@ -4,6 +4,7 @@ import pyaudio
 import numpy as np
 from difflib import SequenceMatcher
 from faster_whisper import WhisperModel
+import ctranslate2
 
 # Predefined command vocabulary and their variants
 COMMANDS = {
@@ -61,10 +62,23 @@ def main():
                         help="Command match threshold (0-1, default: 0.55)")
     args = parser.parse_args()
 
+    # --- CUDAの利用可能性をチェック ---
+    cuda_available = ctranslate2.get_cuda_device_count() > 0
+    
+    if cuda_available:
+        device = "cuda"
+        compute_type = "float16"
+        print("🚀 CUDAが利用可能です。GPUを使用します。")
+    else:
+        device = "cpu"
+        compute_type = "int8"
+        print("⚠️  CUDAが利用できません。CPUを使用します。")
+    
+    print(f"   デバイス: {device}")
+    print(f"   計算タイプ: {compute_type}\n")
+
     # --- Settings ---
     model_size = args.model      # Use selected model from command line
-    device = "cpu"             # use "cuda" if you have NVIDIA GPU
-    compute_type = "int8"      # cpu: int8; gpu: float16/float32 recommended
     beam_size = 5
     temperature = 0.0
 
