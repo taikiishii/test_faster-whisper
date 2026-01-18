@@ -7,6 +7,7 @@ import time
 import ctranslate2
 import gc
 import argparse
+import librosa
 
 
 def apply_preemphasis(x: np.ndarray, coeff: float = 0.97) -> np.ndarray:
@@ -25,6 +26,13 @@ def normalize_audio(audio_np: np.ndarray, target_db: float = -20.0) -> np.ndarra
         return audio_np
     target_rms = 10 ** (target_db / 20.0)
     return audio_np * (target_rms / rms)
+
+
+def resample_audio(audio_np: np.ndarray, orig_sr: int, target_sr: int = 16000) -> np.ndarray:
+    """音声をリサンプリング（Whisper用に16000Hzに変換）"""
+    if orig_sr == target_sr:
+        return audio_np
+    return librosa.resample(audio_np, orig_sr=orig_sr, target_sr=target_sr)
 
 
 def calculate_frame_rms(data: bytes, apply_preemph: bool = False, preemph_coeff: float = 0.97) -> float:
@@ -258,6 +266,11 @@ def main():
             # 事前強調（任意）
             if enable_preemph:
                 audio_np = apply_preemphasis(audio_np, coeff=preemph_coeff)
+            
+            # === リサンプリング: 44100Hz → 16000Hz （Whisperが16000Hzを期待） ===
+            if sample_rate != 16000:
+                print(f"  リサンプリング中: {sample_rate} Hz → 16000 Hz")
+                audio_np = resample_audio(audio_np, sample_rate, target_sr=16000)
             
             # 音声レベルのチェック
             audio_level = np.abs(audio_np).max()
