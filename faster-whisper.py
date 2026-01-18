@@ -126,28 +126,27 @@ def main():
     
     # ストリームを開く。失敗時は別のサンプリングレートを試す
     stream = None
-    tried_rates = [sample_rate]
-    for retry_rate in [44100, 48000, 8000]:
-        if retry_rate not in tried_rates:
-            tried_rates.append(retry_rate)
-        
+    original_sample_rate = sample_rate
+    for retry_rate in [sample_rate, 44100, 48000, 8000]:
         try:
-            input_kwargs['rate'] = tried_rates[tried_rates.index(retry_rate)]
+            input_kwargs['rate'] = retry_rate
             stream = audio.open(**input_kwargs)
-            if stream and tried_rates[tried_rates.index(retry_rate)] != sample_rate:
-                print(f"\n⚠️  {sample_rate} Hz は対応していません")
-                print(f"   {tried_rates[tried_rates.index(retry_rate)]} Hz で開始します\n")
-                sample_rate = tried_rates[tried_rates.index(retry_rate)]
+            if retry_rate != original_sample_rate:
+                print(f"\n⚠️  {original_sample_rate} Hz は対応していません")
+                print(f"   {retry_rate} Hz で開始します\n")
+                sample_rate = retry_rate
             break
         except OSError:
-            if tried_rates[tried_rates.index(retry_rate)] == tried_rates[-1]:
+            if retry_rate == 8000:
                 print("\n❌ どのサンプリングレートでもストリームを開けません")
                 audio.terminate()
                 return
             continue
     
     if stream is None:
-        stream = audio.open(**input_kwargs)
+        print("\n❌ ストリームを開けませんでした")
+        audio.terminate()
+        return
 
     # --- 環境ノイズをキャリブレーション ---
     print("\n環境ノイズ測定中…（2秒、静かにしてください）")
