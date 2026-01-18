@@ -6,6 +6,7 @@ import wave
 import time
 import ctranslate2
 import gc
+import argparse
 
 
 def apply_preemphasis(x: np.ndarray, coeff: float = 0.97) -> np.ndarray:
@@ -47,6 +48,15 @@ def measure_rms(stream, sample_rate: int, chunk_size: int, seconds: float = 2.0,
     return float(np.sqrt(np.mean(audio_np ** 2)))
 
 def main():
+    # --- 引数解析 ---
+    parser = argparse.ArgumentParser(description="Faster Whisper 音声認識")
+    parser.add_argument("--model", type=str, default="small", 
+                        choices=["tiny", "base", "small", "medium", "large-v3", "distil-large-v3"],
+                        help="使用するモデルサイズ (default: small)")
+    parser.add_argument("--beam", type=int, default=1,
+                        help="Beam Size (default: 1, メモリ節約)")
+    args = parser.parse_args()
+
     # --- CUDAの利用可能性をチェック ---
     cuda_available = ctranslate2.get_cuda_device_count() > 0
     
@@ -65,10 +75,11 @@ def main():
     print("   (Jetson用メモリ最適化モード)\n")
     
     # --- 設定 ---
-    model_size = "medium"  # Jetson向けに軽量化（tiny, base, small, medium, large）
+    model_size = args.model
+    print(f"👉 使用モデル: {model_size}")
     
     # === 精度向上パラメータ ===
-    beam_size = 1         # メモリ削減のため1に設定（デフォルト5。1にするとメモリ大幅節約）
+    beam_size = args.beam
     temperature = 0.0     # 0.0 = 最も確実な認識、高いほど多様な結果
     enable_audio_norm = True  # 音声レベルを正規化してSNRを改善
     normalize_target_db = -20.0  # 正規化の目標dB
@@ -78,7 +89,8 @@ def main():
     test_record_seconds = 3  # 開始時のテスト録音秒数
     enable_preemph = True   # 事前強調でSNRを少し改善
     preemph_coeff = 0.97
-    input_device_index = None  # 必要なら入力デバイス番号を指定
+    # デバイス一覧で確認した webcam (index 0) を指定してみてください
+    input_device_index = 0  # 0: ELECOM Webcam, None: Default
     gate_multiplier = 1.5   # ノイズゲート閾値の乗数（低いほど感度が高い）
     gate_enabled = True     # ノイズゲートの有効/無効
     
