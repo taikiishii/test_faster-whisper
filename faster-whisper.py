@@ -51,7 +51,7 @@ def main():
     # --- 引数解析 ---
     parser = argparse.ArgumentParser(description="Faster Whisper 音声認識")
     parser.add_argument("--model", type=str, default="small", 
-                        choices=["tiny", "base", "small", "medium", "large-v3", "distil-large-v3"],
+                        choices=["tiny", "base", "small", "medium", "large-v3"],
                         help="使用するモデルサイズ (default: small)")
     parser.add_argument("--beam", type=int, default=1,
                         help="Beam Size (default: 1, メモリ節約)")
